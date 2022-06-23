@@ -10,22 +10,25 @@ def get_locations(locstr):
     states, cities, countries, country_id, continent_code, continent_name = None, None, None, None, None, None
     locstr = GoogleTranslator(source='auto', target='en').translate(locstr)
     place_entity = locationtagger.find_locations(text=locstr)
-    ###########################################################################
+    ##########################################################################
     # COUNTRIES
-    ###########################################################################
+    ##########################################################################
     if len(place_entity.countries) > 0:
         countries = place_entity.countries[0]
     else: countries = ""
-    ###########################################################################
+    ##########################################################################
     # STATES
-    ###########################################################################
+    ##########################################################################
     if len(place_entity.regions) > 0:
-        if place_entity.cities:
+        if place_entity.other:
+            if place_entity.other[0].find("Prefecture") != -1:
+                states = place_entity.other[0]
+        elif place_entity.cities:
             if (place_entity.regions[0] == place_entity.cities[0]) and (place_entity.regions[0] != "Central") and (place_entity.regions[0] != "Capital")\
                     and (place_entity.regions[0] != "Northern") and (place_entity.regions[0] != "Southern"):
                 states = place_entity.other[0]
             elif place_entity.other:
-                if (place_entity.other[0] == "Region") or (place_entity.other[0] == "Province") or (place_entity.other[0] == "Division") or (place_entity.other[0] == "District") or (place_entity.other[0] == "Capital") or (place_entity.other[0] == "District") or (place_entity.other[0] == "Governorate"):
+                if (place_entity.other[0] == "Region") or (place_entity.other[0] == "Province") or (place_entity.other[0] == "Division") or (place_entity.other[0] == "District") or (place_entity.other[0] == "Capital") or (place_entity.other[0] == "District") or (place_entity.other[0] == "Governorate") or (place_entity.other[0] == "Department") or (place_entity.other[0] == "Prefecture"):
                     if (place_entity.regions[0].find(place_entity.other[0]) == -1):
                         states = place_entity.regions[0] + ' ' + place_entity.other[0]
                     else:
@@ -42,15 +45,15 @@ def get_locations(locstr):
             else:states = place_entity.regions[0]
         except:
             for i in place_entity.other:
-                if ('Region' in i) or ('Province' in i) or ('Division' in i) or ("District" in i) or ("Capital" in i) or ("Governorate" in i):
+                if ('Region' in i) or ('Province' in i) or ('Division' in i) or ("District" in i) or ("Capital" in i) or ("Governorate" in i) or ("Department" in i) or ('Prefecture' in i):
                     try:
                         states = place_entity.regions[0]
                     except:
                         states = i
-                    break
+                        break
     else:
         try:
-            if ("District" in place_entity.regions[0]) or ("Province" in place_entity.regions[0]):
+            if ("District" in place_entity.regions[0]) or ("Province" in place_entity.regions[0]) or ("Department" in place_entity.regions[0]) or ("Prefecture" in place_entity.regions[0]):
                 states = place_entity.regions[0]
         except:
             states = ""
@@ -60,9 +63,9 @@ def get_locations(locstr):
             states = place_entity.regions[0]
     if states == "Surrounding Area":
         states = ""
-    #########################################################################
+    ####################################################################################
     # CITIES
-    #########################################################################
+    ####################################################################################
     temp = []
     if len(place_entity.cities) > 0:
         cities = place_entity.cities[0]
@@ -70,14 +73,14 @@ def get_locations(locstr):
             cities = ""
         if (cities == countries):
             for i in place_entity.other:
-                if ('Region' not in i) or ('Province' not in i) or ('Division' not in i) or ('Capital' not in i) or ("District" not in i) or ("Governorate" not in i):
+                if ('Region' not in i) or ('Province' not in i) or ('Division' not in i) or ('Capital' not in i) or ("District" not in i) or ("Governorate" not in i) or ("Department" not in i) or ("Prefecture" not in i):
                     temp.append(i)
                     # cities = i
             # cities = ""
         # print(temp)
         # temp2 = []
         for j in temp:
-            if (j.find("Province") != -1) or (j.find("Region") != -1) or (j.find("Division") != -1) or (j.find("Capital") != -1) or (j.find("District") != -1):
+            if (j.find("Province") != -1) or (j.find("Region") != -1) or (j.find("Division") != -1) or (j.find("Capital") != -1) or (j.find("District") != -1) or (j.find("Department") != -1) or (j.find("Prefecture") != -1):
                 # temp2.append(j)
                 continue
             else:cities = j
@@ -85,30 +88,30 @@ def get_locations(locstr):
     else:
         try:
             for i in place_entity.other:
-                if (i.find(countries) != -1) or (i.find("Province") != -1) or (i.find("Region") != -1) or (i.find("Division") != -1) or (i.find("Capital") != -1) or (i.find("District") != -1):
+                if (i.find(countries) != -1) or (i.find("Province") != -1) or (i.find("Region") != -1) or (i.find("Division") != -1) or (i.find("Capital") != -1) or (i.find("District") != -1) or (i.find("Department") != -1) or (i.find("Prefecture")):
                     continue
                 else:
                     cities = i
         except:
             cities = ""
 
-    if (cities == states) or (cities == countries) or (cities == None):
+    if (cities == states) or (cities == countries) or (cities == None) or (cities == "Prefecture"):
         cities = ""
-    ###################################################################################
+    #################################################################################################
     # COUNTRY CODE
-    ###################################################################################
+    #################################################################################################
     if countries:
         country_id = cid_mapper.get(countries)
     else: country_id = ""
-    ##################################################################################
+    #################################################################################################
     # CONTINENT / REGION CODE
-    ##################################################################################
+    #################################################################################################
     if country_id:
         continent_code = pc.country_alpha2_to_continent_code(country_id)
     else: continent_code = ""
-    ##################################################################################
+    #################################################################################################
     # CONTINENT / REGION NAME
-    ##################################################################################
+    #################################################################################################
     if continent_code:
         continent_name = pc.convert_continent_code_to_continent_name(continent_code)
     else: continent_name = ""
@@ -123,6 +126,6 @@ def get_locations(locstr):
             "region":continent_name,
             "region_code":continent_code}
 
-sample = "Tokyo and Surrounding Area"
+sample = "Aichi Prefecture, Japan"
 loc = get_locations(sample)
 print(loc)
