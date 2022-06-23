@@ -16,6 +16,16 @@ def get_country_code_and_country_using_state_only(statestr):
     country = address.get('country', '')
     return country_code, country
 
+def get_country_code__using_city_only(statestr):
+    geolocator = Nominatim(user_agent="geo")
+    location = geolocator.geocode(statestr)
+    location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
+    address = location.raw['address']
+    country_code = address.get('country_code', '').upper()
+    country = address.get('country', '')
+    country = GoogleTranslator(source='auto', target='en').translate(country)
+    return country_code, country
+
 def get_locations(locstr):
     states, cities, countries, country_id, continent_code, continent_name = None, None, None, None, None, None
     locstr = GoogleTranslator(source='auto', target='en').translate(locstr)
@@ -106,6 +116,9 @@ def get_locations(locstr):
         states = states + " " + "Prefecture"
     if (cities == states) or (cities == countries) or (cities == None):
         cities = ""
+
+    if (cities != '') and (states == '') and (countries == ''):
+        country_id, countries = get_country_code__using_city_only(cities)
     ###################################################################################
     # COUNTRY CODE
     ###################################################################################
@@ -138,6 +151,6 @@ def get_locations(locstr):
             "region":continent_name,
             "region_code":continent_code}
 
-sample = "West Java"
+sample = "Tokyo and Surrounding Area"
 loc = get_locations(sample)
 print(loc)
