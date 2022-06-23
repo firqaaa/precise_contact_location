@@ -3,8 +3,18 @@ import pycountry
 import locationtagger
 import pycountry_convert as pc
 from deep_translator import GoogleTranslator
+from geopy.geocoders import Nominatim
 
 cid_mapper = {country.name: country.alpha_2 for country in pycountry.countries}
+
+def get_country_code_and_country_using_state_only(statestr):
+    geolocator = Nominatim(user_agent="geo")
+    location = geolocator.geocode(statestr)
+    location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
+    address = location.raw['address']
+    country_code = address.get('country_code', '').upper()
+    country = address.get('country', '')
+    return country_code, country
 
 def get_locations(locstr):
     states, cities, countries, country_id, continent_code, continent_name = None, None, None, None, None, None
@@ -102,6 +112,9 @@ def get_locations(locstr):
     if countries:
         country_id = cid_mapper.get(countries)
     else: country_id = ""
+
+    if (country_id == '') and (states != ''):
+        country_id, countries = get_country_code_and_country_using_state_only(states)
     ##################################################################################
     # CONTINENT / REGION CODE
     ##################################################################################
@@ -125,6 +138,6 @@ def get_locations(locstr):
             "region":continent_name,
             "region_code":continent_code}
 
-sample = "Dhaka District, Bangladesh"
+sample = "West Java"
 loc = get_locations(sample)
 print(loc)
