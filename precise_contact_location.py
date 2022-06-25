@@ -1,4 +1,5 @@
 import re
+import string
 import pycountry
 import locationtagger
 from rapidfuzz import fuzz
@@ -65,7 +66,7 @@ def detect_and1(pass_string):
       return pass_string
 
 def get_state_country(citystr):
-  geolocator = Nominatim(user_agent="geopy1")
+  geolocator = Nominatim(user_agent="geopy1", timeout=3)
   location = geolocator.geocode(citystr)
   location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
   address = location.raw['address']
@@ -74,7 +75,7 @@ def get_state_country(citystr):
   return state, country
 
 def get_city_state_countries_from_road(roadstr):
-    geolocator = Nominatim(user_agent="geopy2")
+    geolocator = Nominatim(user_agent="geopy2", timeout=3)
     location = geolocator.geocode(roadstr)
     addr = location.address
     addr = addr.split(',')
@@ -85,7 +86,7 @@ def get_city_state_countries_from_road(roadstr):
 
 def get_country_code_and_country_using_state_only(statestr):
     try:
-        geolocator = Nominatim(user_agent="geopy3")
+        geolocator = Nominatim(user_agent="geopy3",timeout=3)
 
         location = geolocator.geocode(statestr)
         location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
@@ -100,7 +101,7 @@ def get_country_code_and_country_using_state_only(statestr):
 
 def get_country_code__using_city_only(citystr):
     try:
-        geolocator = Nominatim(user_agent="geopy4")
+        geolocator = Nominatim(user_agent="geopy4", timeout=3)
 
         location = geolocator.geocode(citystr)
         location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
@@ -115,7 +116,7 @@ def get_country_code__using_city_only(citystr):
 
 def get_country_and_state_using_city_only(citystr):
     try:
-        geolocator = Nominatim(user_agent="geopy5")
+        geolocator = Nominatim(user_agent="geopy5", timeout=3)
 
         location = geolocator.geocode(citystr)
         location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
@@ -140,6 +141,21 @@ def get_locations(locstr):
 
   if locstr in citiesList:
     states, countries = get_country_and_state_using_city_only(locstr)
+  ############################################################################
+
+  ############################################################################
+  # CITY - STATES
+  ############################################################################
+  if (len(locstr.split(",")) == 2) and (len(locstr.split(",")[-1].strip()) > 2):
+    if locstr.split(",")[0] in citiesList:
+      cities = locstr.split(",")[0]
+    if locstr.split(",")[-1].strip() in statesList:
+      states = locstr.split(",")[-1].strip()
+    try:
+      locstr = cities + ", " + states
+    except:
+      pass
+  
   ############################################################################
 
   ############################################################################
@@ -171,9 +187,18 @@ def get_locations(locstr):
         if locstr.split(',')[0] in citiesList:
           cities = locstr.split(',')[0]
           states, countries = get_state_country(locstr)
+          if type(states) == list:
+            states = states[0]
+          # cities = cities.translate(str.maketrans('', '', string.punctuation))
+          # states = states.translate(str.maketrans('', '', string.punctuation))
+          # countries = countries.translate(str.maketrans('', '', string.punctuation))
       elif statesCodeToStatesName.get(locstr.split(',')[-1].strip()) and len(statesCodeToStatesName.get(locstr.split(',')[-1].strip())) == 1:
         cities = locstr.split(',')[0]
         states = statesCodeToStatesName.get(locstr.split(',')[-1].strip())
+        if type(states) == list:
+          states = states[0]
+        # cities = cities.translate(str.maketrans('', '', string.punctuation))
+        # states = states.translate(str.maketrans('', '', string.punctuation))
   else:
     locstr = locstr.title()
   ############################################################################
@@ -184,7 +209,7 @@ def get_locations(locstr):
   ############################################################################
   if (locstr.split(" ")[0] == "Greater") and (locstr.split(" ")[-1] == "Area"):
     locstr = ' '.join(locstr.split(' ')[1:])
-    geolocator = Nominatim(user_agent="geo11")
+    geolocator = Nominatim(user_agent="geo11", timeout=3)
     location = geolocator.geocode(locstr)
     try:
       location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
@@ -197,7 +222,7 @@ def get_locations(locstr):
   elif (locstr.split(',')[-1].split(" ")[-1] == "Area") and (len(locstr.split(',')) == 2):
     cities = locstr.split(',')[0]
     states = locstr.split(',')[-1].strip().split(" ")[0]
-    geolocator = Nominatim(user_agent="geo12")
+    geolocator = Nominatim(user_agent="geo12", timeout=3)
     location = geolocator.geocode("{}, {}".format(cities, states))
     try:
       location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
@@ -355,7 +380,7 @@ def get_locations(locstr):
       #### IF CURRENT RESULT JUST HAS A CITY
       #########################################################################
       try:
-          if (cities != '') and (states == '') and (countries == ''):
+          if (cities != '') or (states == '') or (countries == ''):
               country_id, countries = get_country_code__using_city_only(cities)
       except:
           country_id, countries = "", ""
@@ -396,8 +421,8 @@ def get_locations(locstr):
   ##################################################################################
   # states = GoogleTranslator(source="en", target=country_id.lower()).translate(states)
 
-  # if fuzz.ratio(states, countries) > 50.:
-  #     states = ""
+  if fuzz.ratio(states, countries) > 65.:
+      states = ""
 
   return {"city": cities,
           "state": states,
