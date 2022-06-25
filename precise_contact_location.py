@@ -324,8 +324,17 @@ def get_locations(locstr):
     except:
       countries = ""
   ##############################################################################
-
-  place_entity = locationtagger.find_locations(text=locstr)
+  try:
+    place_entity = locationtagger.find_locations(text=locstr)
+  except:
+    return {
+        "city":"",
+        "state":"",
+        "country":"",
+        "country_code":"",
+        "region":"",
+        "region_code":""
+    }
 
   ###########################################################################
   # COUNTRIES
