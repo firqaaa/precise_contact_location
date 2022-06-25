@@ -131,10 +131,61 @@ def get_country_and_state_using_city_only(citystr):
 def get_locations(locstr):
   states, cities, countries, country_id, continent_code, continent_name = None, None, None, None, None, None
 
+  ############################################################################
+  # ROAD REFORMATING (ex: 159, Sin Ming Road # 07-02 Lobby 2 Amtech Building
+  # --> 159, Sin Ming Road)
+  ############################################################################
+  if "Road" in locstr:
+    locstr = locstr[0:re.search(r"\bRoad\b", locstr).end()]
+  if "ROAD" in locstr:
+    locstr = locstr[0:re.search(r"\bROAD\b", locstr).end()]
+  if "road" in locstr:
+    locstr = locstr[0:re.search(r"\broad\b", locstr).end()]
+  if "Street" in locstr:
+    locstr = locstr[0:re.search(r"\bStreet\b", locstr).end()]
+  if "street" in locstr:
+    locstr = locstr[0:re.search(r"\bstreet\b", locstr).end()]
+
+  ############################################################################
+  ### PREPROCESSING
+  ############################################################################
   locstr = detect_pipe(locstr)
-  locstr = detect_and1(locstr)
+  # locstr = detect_and1(locstr)
   locstr = detect_dash(locstr)
   locstr = detect_backslash(locstr)
+
+  ############################################################################
+  # ROAD 
+  ############################################################################
+  print(locstr)
+  if (re.findall('[0-9]+', locstr))\
+          or (locstr.split(' ')[-1] == "Road")\
+          or (locstr.split(' ')[-1] == "ROAD")\
+          or ("Road" in locstr.split(' '))\
+          or ("ROAD" in locstr.split(' '))\
+          or ("Street" in locstr.split(' '))\
+          or ("street" in locstr.split(' ')):
+      try:
+          cities, states, countries = get_city_state_countries_from_road(locstr)
+          cities = cities.strip()
+          states = states.strip()
+          countries = countries.strip()
+      except:
+        pass
+          # # remove street number
+          # locstr = rm_num(locstr)
+          # if len(locstr.split(',')) > 3:
+          #     # only pick state, country
+          #     locstr = ",".join(locstr.split(',')[-2:])
+  ###########################################################################
+
+  ###########################################################################
+  # COUNTRY ONLY
+  ###########################################################################
+  if locstr.title() in countriesList:
+      countries = locstr
+  ############################################################################
+
   ###########################################################################
   # CITY ONLY
   ###########################################################################
@@ -157,26 +208,6 @@ def get_locations(locstr):
       pass
   
   ############################################################################
-
-  ############################################################################
-  # ROAD
-  ############################################################################
-  if (re.findall('[0-9]+', locstr))\
-          or (locstr.split(' ')[-1] == "Road")\
-          or (locstr.split(' ')[-1] == "ROAD")\
-          or ("Road" in locstr.split(' '))\
-          or ("ROAD" in locstr.split(' ')):
-      try:
-          cities, states, countries = get_city_state_countries_from_road(locstr)
-          cities = cities.strip()
-          states = states.strip()
-          countries = countries.strip()
-      except:
-          # remove street number
-          locstr = rm_num(locstr)
-          if len(locstr.split(',')) > 3:
-              # only pick state, country
-              locstr = ",".join(locstr.split(',')[-2:])
 
   ############################################################################
   ## THIS CODE TO SOLVE CITY - STATE CODE FORMAT (ex: Bonney Lake, WA) #######
@@ -208,7 +239,7 @@ def get_locations(locstr):
   ## (ex: Greater Jakarta Area / Richland, Washington Area)
   ############################################################################
   if (locstr.split(" ")[0] == "Greater") and (locstr.split(" ")[-1] == "Area"):
-    locstr = ' '.join(locstr.split(' ')[1:])
+    locstr = ' '.join(locstr.split(' ')[1:-1]).strip()
     geolocator = Nominatim(user_agent="geo11", timeout=3)
     location = geolocator.geocode(locstr)
     try:
@@ -216,6 +247,7 @@ def get_locations(locstr):
       address = location.raw['address']
       cities = address.get('city', '').strip()
       countries = address.get('country', '').strip()
+      states = address.get('state', '').strip()
     except:
       cities = ""
       countries = ""
@@ -379,17 +411,17 @@ def get_locations(locstr):
       #########################################################################
       #### IF CURRENT RESULT JUST HAS A CITY
       #########################################################################
-      try:
-          if (cities != '') or (states == '') or (countries == ''):
-              country_id, countries = get_country_code__using_city_only(cities)
-      except:
-          country_id, countries = "", ""
+      # try:
+      #     if (cities != '') or (states == '') or (countries == ''):
+      #         country_id, countries = get_country_code__using_city_only(cities)
+      # except:
+      #     country_id, countries = "", ""
 
-      try:
-          if (len(states) == 2) or (len(states) == 3):
-              states, countries = get_country_and_state_using_city_only(locstr)
-      except:
-          states, countries = "", ""
+      # try:
+      #     if (len(states) == 2) or (len(states) == 3):
+      #         states, countries = get_country_and_state_using_city_only(locstr)
+      # except:
+      #     states, countries = "", ""
 
   ############################################################################
   # COUNTRY CODE
@@ -431,6 +463,6 @@ def get_locations(locstr):
           "region":continent_name,
           "region_code":continent_code}
 
-sample = "57 PIONEER ROAD"
+sample = "Jalan Aria Jipang No 7"
 loc = get_locations(sample)
 print(loc)
