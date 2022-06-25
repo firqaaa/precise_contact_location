@@ -13,6 +13,21 @@ def rm_num(locstr):
     locstr = re.sub(r'\d+', '', locstr)
     return ''.join(locstr)
 
+def preproc(locstr):
+  locstr = re.sub(r"\bHead\b", "", locstr)
+  locstr = re.sub(r"\bhead\b", "", locstr)
+  locstr = re.sub(r"\bHEAD\b", "", locstr)
+  locstr = re.sub(r"\bBuilding\b", "", locstr)
+  locstr = re.sub(r"\bbuilding\b", "", locstr)
+  locstr = re.sub(r"\bBUILDING\b", "", locstr)
+  locstr = re.sub(r"\bOffice\b", "", locstr)
+  locstr = re.sub(r"\bOFFICE\b", "", locstr)
+  locstr = re.sub(r"\boffice\b", "", locstr)
+  locstr = re.sub(r"\bCity\b", "", locstr)
+  locstr = re.sub(r"\bcity\b", "", locstr)
+  locstr = re.sub(r"\bCITY\b", "", locstr)
+  return locstr
+
 def detect_backslash(pass_string): 
   regex= re.compile('[/]') 
   if(regex.search(pass_string) != None):
@@ -30,10 +45,13 @@ def detect_dash(pass_string):
   regex= re.compile('[-]') 
   if(regex.search(pass_string) != None):
     sub_string = pass_string.split('-')[1].strip()
+    # print(sub_string)
     if len(pass_string.split(',')) == 2:
-      return sub_string + "," + pass_string.split(',')[-1]
+      # return sub_string + "," + pass_string.split(',')[-1]
+      return sub_string
     elif len(pass_string.split(',')) == 3:
-      return sub_string + "," + pass_string.split(',')[-2:]
+      # return sub_string + "," + pass_string.split(',')[-2:]
+      return sub_string
     else:
       return sub_string
   else: 
@@ -128,9 +146,40 @@ def get_country_and_state_using_city_only(citystr):
     except:
         pass
 
+def get_countries_using_states_only(statestr):
+    try:
+        geolocator = Nominatim(user_agent="geopy15", timeout=3)
+
+        location = geolocator.geocode(statestr)
+        location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
+
+        address = location.raw['address']
+        country = address.get('country', '')
+        return country
+    except:
+        pass
+
+def get_all_the_things(locstr):
+    try:
+        geolocator = Nominatim(user_agent="geopy25", timeout=3)
+
+        location = geolocator.geocode(locstr)
+        location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
+
+        address = location.raw['address']
+        city = address.get('city', '')
+        state = address.get('state', '')
+        country = address.get('country', '')
+        return city, state, country
+    except:
+        pass
+
 def get_locations(locstr):
   states, cities, countries, country_id, continent_code, continent_name = None, None, None, None, None, None
 
+  if locstr.isupper():
+    locstr = locstr.title()
+  locstr = preproc(locstr)
   ############################################################################
   # ROAD REFORMATING (ex: 159, Sin Ming Road # 07-02 Lobby 2 Amtech Building
   # --> 159, Sin Ming Road)
@@ -153,11 +202,12 @@ def get_locations(locstr):
   # locstr = detect_and1(locstr)
   locstr = detect_dash(locstr)
   locstr = detect_backslash(locstr)
-
+  
+  if len(locstr.split(" ")[0]) == 1:
+    locstr = locstr[2:]
   ############################################################################
   # ROAD 
   ############################################################################
-  print(locstr)
   if (re.findall('[0-9]+', locstr))\
           or (locstr.split(' ')[-1] == "Road")\
           or (locstr.split(' ')[-1] == "ROAD")\
@@ -191,8 +241,19 @@ def get_locations(locstr):
   ###########################################################################
 
   if locstr in citiesList:
+    cities = locstr
     states, countries = get_country_and_state_using_city_only(locstr)
   ############################################################################
+  
+  ###########################################################################
+  # STATES ONLY
+  ###########################################################################
+
+  if locstr in statesList:
+    states = locstr
+    countries = get_countries_using_states_only(locstr)
+  ############################################################################
+
 
   ############################################################################
   # CITY - STATES
@@ -231,7 +292,7 @@ def get_locations(locstr):
         # cities = cities.translate(str.maketrans('', '', string.punctuation))
         # states = states.translate(str.maketrans('', '', string.punctuation))
   else:
-    locstr = locstr.title()
+    locstr = locstr
   ############################################################################
 
   ############################################################################
@@ -411,11 +472,20 @@ def get_locations(locstr):
       #########################################################################
       #### IF CURRENT RESULT JUST HAS A CITY
       #########################################################################
-      # try:
-      #     if (cities != '') or (states == '') or (countries == ''):
-      #         country_id, countries = get_country_code__using_city_only(cities)
-      # except:
-      #     country_id, countries = "", ""
+      try:
+          if (cities != '') and (states == '') and (countries == ''):
+              country_id, countries = get_country_code__using_city_only(cities)
+      except:
+          country_id, countries = "", ""
+
+      #########################################################################
+      #### IF ALL KEY IS NULL / EMPTY STRING 
+      #########################################################################
+      try:
+          if (cities == '') and (states == '') and (countries == ''):
+              _, _, countries = get_all_the_things(locstr)
+      except:
+          country_id, countries = "", ""
 
       # try:
       #     if (len(states) == 2) or (len(states) == 3):
@@ -463,6 +533,6 @@ def get_locations(locstr):
           "region":continent_name,
           "region_code":continent_code}
 
-sample = "Jalan Aria Jipang No 7"
+sample = "Greater Jakarta Area"
 loc = get_locations(sample)
 print(loc)
