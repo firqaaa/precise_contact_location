@@ -26,7 +26,14 @@ def preproc(locstr):
   locstr = re.sub(r"\bCity\b", "", locstr)
   locstr = re.sub(r"\bcity\b", "", locstr)
   locstr = re.sub(r"\bCITY\b", "", locstr)
-  return locstr
+  locstr = re.sub(r"\bof\b", "", locstr)
+  locstr = re.sub(r"\bOF\b", "", locstr)
+  locstr = re.sub(r"\bOf\b", "", locstr)
+  locstr = re.sub(r"\b&\b", "", locstr)
+  locstr = re.sub(r"\bAnd\b", "", locstr)
+  locstr = re.sub(r"\band\b", "", locstr)
+  locstr = re.sub(r"\bAND\b", "", locstr)
+  return locstr.strip()
 
 def detect_backslash(pass_string): 
   regex= re.compile('[/]') 
@@ -173,6 +180,17 @@ def get_all_the_things(locstr):
         return city, state, country
     except:
         pass
+
+def get_country_code_using_only_country(countrystr):
+  try:
+    geolocator = Nominatim(user_agent="geo32", timeout=3)
+    location = geolocator.geocode(countrystr)
+    location = geolocator.reverse("{}, {}".format(str(location.raw['lat']), str(location.raw['lon'])), exactly_one=True)
+    address = location.raw['address']
+    country_code = address.get('country_code', '').upper()
+    return country_code
+  except:
+    pass
 
 def get_locations(locstr):
   states, cities, countries, country_id, continent_code, continent_name = None, None, None, None, None, None
@@ -323,6 +341,9 @@ def get_locations(locstr):
       countries = address.get('country', '').strip()
     except:
       countries = ""
+  elif (locstr.split(" ")[0] == "Greater") and (locstr.split(",")[0].split(" ")[-1] == "Area"):
+    locstr = locstr.split(" ")[1] + "," + locstr.split(",")[-1]
+    cities, states, countries = get_all_the_things(locstr)
   ##############################################################################
   try:
     place_entity = locationtagger.find_locations(text=locstr)
@@ -527,6 +548,26 @@ def get_locations(locstr):
       continent_name = pc.convert_continent_code_to_continent_name(continent_code.strip())
   else: continent_name = ""
 
+
+  #########################################################################
+  #### IF CURRENT RESULT HAS COUNTRY BUT COUNTRY/REGION CODE, AND
+  #### REGION NAME IS EMPTY
+  #########################################################################
+  try:
+      if (countries != '') and (country_id == '') and (continent_code == '') and (continent_name == '')\
+      or (country_id == None) or (continent_code == None) or (continent_name == None):
+          country_id = get_country_code_using_only_country(countries)
+      if country_id:
+        continent_code = pc.country_alpha2_to_continent_code(country_id.strip())
+      else: 
+        continent_code = ""
+      if continent_code:
+        continent_name = pc.convert_continent_code_to_continent_name(continent_code.strip())
+      else: 
+        continent_name = ""
+  except:
+      country_id, countries = "", ""
+
   ##################################################################################
   # STATE BACK-TRANSLATION
   ##################################################################################
@@ -542,6 +583,6 @@ def get_locations(locstr):
           "region":continent_name,
           "region_code":continent_code}
 
-sample = "Greater Jakarta Area"
+sample = "City of Fond du Lac"
 loc = get_locations(sample)
 print(loc)
