@@ -14,6 +14,12 @@ def rm_num(locstr):
     return ''.join(locstr)
 
 def preproc(locstr):
+  locstr = re.sub(r"\bTn\b\.$", "", locstr).strip()
+  if locstr.endswith(","):
+    locstr = locstr[:-1]
+  locstr = re.sub("\bTown\b", "", locstr)
+  locstr = re.sub("\bTOWN\b", "", locstr)
+  locstr = re.sub("\btown\b", "", locstr)
   locstr = re.sub(r"\bHead\b", "", locstr)
   locstr = re.sub(r"\bhead\b", "", locstr)
   locstr = re.sub(r"\bHEAD\b", "", locstr)
