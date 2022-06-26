@@ -33,6 +33,9 @@ def preproc(locstr):
   locstr = re.sub(r"\bAnd\b", "", locstr)
   locstr = re.sub(r"\band\b", "", locstr)
   locstr = re.sub(r"\bAND\b", "", locstr)
+  locstr = re.sub(r"\bTransportation\b", "", locstr)
+  locstr = re.sub(r"\bTRANSPORTATION\b", "", locstr)
+  locstr = re.sub(r"\btransportation\b", "", locstr)
   return locstr.strip()
 
 def detect_backslash(pass_string): 
