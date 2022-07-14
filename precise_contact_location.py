@@ -12,8 +12,8 @@ from geopy.geocoders import Nominatim
 
 from multiprocessing.pool import ThreadPool as Pool
 from functools import lru_cache
-# import warnings
-# warnings.filterwarnings('ignore')
+import warnings
+warnings.filterwarnings('ignore')
 
 @lru_cache(maxsize=128)
 def detect_language(text):
@@ -34,40 +34,8 @@ def rm_num(locstr):
 
 @lru_cache(maxsize=128)
 def preproc(locstr):
-  locstr = re.sub(r"\bTn\b\.$", "", locstr).strip()
-  if locstr.endswith(","):
-    locstr = locstr[:-1]
-  locstr = re.sub("\bTown\b", "", locstr)
-  locstr = re.sub("\bTOWN\b", "", locstr)
-  locstr = re.sub("\btown\b", "", locstr)
-  locstr = re.sub(r"\bHead\b", "", locstr)
-  locstr = re.sub(r"\bhead\b", "", locstr)
-  locstr = re.sub(r"\bHEAD\b", "", locstr)
-  locstr = re.sub(r"\bBuilding\b", "", locstr)
-  locstr = re.sub(r"\bbuilding\b", "", locstr)
-  locstr = re.sub(r"\bBUILDING\b", "", locstr)
-  locstr = re.sub(r"\bOffice\b", "", locstr)
-  locstr = re.sub(r"\bOFFICE\b", "", locstr)
-  locstr = re.sub(r"\boffice\b", "", locstr)
-  locstr = re.sub(r"\bCity\b", "", locstr)
-  locstr = re.sub(r"\bcity\b", "", locstr)
-  locstr = re.sub(r"\bCITY\b", "", locstr)
-  locstr = re.sub(r"\bof\b", "", locstr)
-  locstr = re.sub(r"\bOF\b", "", locstr)
-  locstr = re.sub(r"\bOf\b", "", locstr)
-  locstr = re.sub(r"\b&\b", "", locstr)
-  locstr = re.sub(r"\bAnd\b", "", locstr)
-  locstr = re.sub(r"\band\b", "", locstr)
-  locstr = re.sub(r"\bAND\b", "", locstr)
-  locstr = re.sub(r"\bTransportation\b", "", locstr)
-  locstr = re.sub(r"\bTRANSPORTATION\b", "", locstr)
-  locstr = re.sub(r"\btransportation\b", "", locstr)
-  locstr = re.sub(r"\bSTE\b", "", locstr)
-  locstr = re.sub(r"\bD.C\b", "", locstr)
-  locstr = re.sub(r"\bMetro\b", "", locstr)
-  locstr = re.sub(r"\bMETRO\b", "", locstr)
-  locstr = re.sub(r"\bmetro\b", "", locstr)
-  return locstr.strip()
+  pattern = re.compile("Town|City|Head|Building|Office|City|Of|And|Transportation|STE|D.C|Metro|Tn.", flags=re.I)
+  return pattern.sub("", locstr).strip()
 
 @lru_cache(maxsize=128)
 def detect_backslash(pass_string): 
@@ -88,12 +56,9 @@ def detect_dash(pass_string):
   regex= re.compile('[-]') 
   if(regex.search(pass_string) != None):
     sub_string = pass_string.split('-')[1].strip()
-    # print(sub_string)
     if len(pass_string.split(',')) == 2:
-      # return sub_string + "," + pass_string.split(',')[-1]
       return sub_string
     elif len(pass_string.split(',')) == 3:
-      # return sub_string + "," + pass_string.split(',')[-2:]
       return sub_string
     else:
       return sub_string
@@ -264,29 +229,14 @@ def get_locations(locstr):
   # ROAD REFORMATING (ex: 159, Sin Ming Road # 07-02 Lobby 2 Amtech Building
   # --> 159, Sin Ming Road)
   ############################################################################
-  try:
-    if "Road" in locstr:
-      locstr = locstr[0:re.search(r"\bRoad\b", locstr).end()]
+  road_set = {"Road", "ROAD", "road", "Street", "street"}
+  try: 
+    road = [ele for ele in locstr.split(" ") if ele in road_set][0]
   except:
-    pass
+    road = None
   try:
-    if "ROAD" in locstr:
-      locstr = locstr[0:re.search(r"\bROAD\b", locstr).end()]
-  except:
-    pass
-  try:
-    if "road" in locstr:
-      locstr = locstr[0:re.search(r"\broad\b", locstr).end()]
-  except:
-    pass
-  try:
-    if "Street" in locstr:
-      locstr = locstr[0:re.search(r"\bStreet\b", locstr).end()]
-  except:
-    pass
-  try:
-    if "street" in locstr:
-      locstr = locstr[0:re.search(r"\bstreet\b", locstr).end()]
+    if road:
+      locstr = locstr[0:re.search(r"{}".format(road), locstr, flags=re.IGNORECASE).end()]
   except:
     pass
   ############################################################################
@@ -302,13 +252,7 @@ def get_locations(locstr):
   ############################################################################
   # ROAD 
   ############################################################################
-  if (re.findall('[0-9]+', locstr))\
-          or (locstr.split(' ')[-1] == "Road")\
-          or (locstr.split(' ')[-1] == "ROAD")\
-          or ("Road" in locstr.split(' '))\
-          or ("ROAD" in locstr.split(' '))\
-          or ("Street" in locstr.split(' '))\
-          or ("street" in locstr.split(' ')):
+  if re.findall('[0-9]+', locstr) or road:
       try:
           cities, states, countries = get_city_state_countries_from_road(locstr)
           cities = cities.strip()
@@ -316,24 +260,19 @@ def get_locations(locstr):
           countries = countries.strip()
       except:
         pass
-          # # remove street number
-          # locstr = rm_num(locstr)
-          # if len(locstr.split(',')) > 3:
-          #     # only pick state, country
-          #     locstr = ",".join(locstr.split(',')[-2:])
   ###########################################################################
 
   ###########################################################################
   # COUNTRY ONLY
   ###########################################################################
-  if locstr.title() in countriesList:
+  if locstr.title() in set(countriesList):
       countries = locstr
   ############################################################################
 
   ###########################################################################
   # CITY ONLY
   ###########################################################################
-  if locstr in citiesList:
+  if locstr in set(citiesList):
     cities = locstr
     try:
       states, countries = get_country_and_state_using_city_only(locstr)
@@ -345,21 +284,19 @@ def get_locations(locstr):
   ###########################################################################
   # STATES ONLY
   ###########################################################################
-
-  if locstr in statesList:
+  if locstr in set(statesList):
     states = locstr
     countries = get_countries_using_states_only(locstr)
   ############################################################################
-
-
   ############################################################################
   # CITY - STATES
   ############################################################################
-  if (len(locstr.split(",")) == 2) and (len(locstr.split(",")[-1].strip()) > 2):
-    if locstr.split(",")[0] in citiesList:
-      cities = locstr.split(",")[0]
-    if locstr.split(",")[-1].strip() in statesList:
-      states = locstr.split(",")[-1].strip()
+  loc_split_by_comma = locstr.split(",")
+  if (len(loc_split_by_comma) == 2) and (len(loc_split_by_comma[-1].strip()) > 2):
+    if loc_split_by_comma[0] in set(citiesList):
+      cities = loc_split_by_comma[0]
+    if loc_split_by_comma[-1].strip() in set(statesList):
+      states = loc_split_by_comma[-1].strip()
     try:
       locstr = cities + ", " + states
     except:
@@ -370,27 +307,22 @@ def get_locations(locstr):
   ############################################################################
   ## THIS CODE TO SOLVE CITY - STATE CODE FORMAT (ex: Bonney Lake, WA) #######
   ############################################################################ 
-  if (len(locstr.split(',')) == 2):
-    if len(locstr.split(',')[-1].strip()):
-      if statesCodeToStatesName.get(locstr.split(',')[-1].strip()) and len(statesCodeToStatesName.get(locstr.split(',')[-1].strip())) > 1:
-        if locstr.split(',')[0] in citiesList:
-          cities = locstr.split(',')[0]
+  if (len(loc_split_by_comma) == 2):
+    if len(loc_split_by_comma[-1].strip()):
+      if statesCodeToStatesName.get(loc_split_by_comma[-1].strip()) and len(statesCodeToStatesName.get(loc_split_by_comma[-1].strip())) > 1:
+        if loc_split_by_comma[0] in set(citiesList):
+          cities = loc_split_by_comma[0]
           try:
             states, countries = get_state_country(locstr)
           except:
             states, countries = "", ""
           if type(states) == list:
             states = states[0]
-          # cities = cities.translate(str.maketrans('', '', string.punctuation))
-          # states = states.translate(str.maketrans('', '', string.punctuation))
-          # countries = countries.translate(str.maketrans('', '', string.punctuation))
-      elif statesCodeToStatesName.get(locstr.split(',')[-1].strip()) and len(statesCodeToStatesName.get(locstr.split(',')[-1].strip())) == 1:
-        cities = locstr.split(',')[0]
-        states = statesCodeToStatesName.get(locstr.split(',')[-1].strip())
+      elif statesCodeToStatesName.get(loc_split_by_comma[-1].strip()) and len(statesCodeToStatesName.get(loc_split_by_comma[-1].strip())) == 1:
+        cities = loc_split_by_comma[0]
+        states = statesCodeToStatesName.get(loc_split_by_comma[-1].strip())
         if type(states) == list:
           states = states[0]
-        # cities = cities.translate(str.maketrans('', '', string.punctuation))
-        # states = states.translate(str.maketrans('', '', string.punctuation))
   else:
     locstr = locstr
   ############################################################################
@@ -399,8 +331,9 @@ def get_locations(locstr):
   ## THIS CODE TO SOLVE CITY - STATE AREA OR STATE AREA FORMAT 
   ## (ex: Greater Jakarta Area / Richland, Washington Area)
   ############################################################################
-  if (locstr.split(" ")[0] == "Greater") and (locstr.split(" ")[-1] == "Area"):
-    locstr = ' '.join(locstr.split(' ')[1:-1]).strip()
+  loc_split_by_space = locstr.split(" ")
+  if (loc_split_by_space[0] == "Greater") and (loc_split_by_space[-1] == "Area"):
+    locstr = ' '.join(loc_split_by_space[1:-1]).strip()
     geolocator = Nominatim(user_agent="geo11", timeout=3)
     location = geolocator.geocode(locstr)
     try:
@@ -412,9 +345,9 @@ def get_locations(locstr):
     except:
       cities = ""
       countries = ""
-  elif (locstr.split(',')[-1].split(" ")[-1] == "Area") and (len(locstr.split(',')) == 2):
-    cities = locstr.split(',')[0]
-    states = locstr.split(',')[-1].strip().split(" ")[0]
+  elif (loc_split_by_comma[-1].split(" ")[-1] == "Area") and (len(loc_split_by_comma) == 2):
+    cities = loc_split_by_comma[0]
+    states = loc_split_by_comma[-1].strip().split(" ")[0]
     geolocator = Nominatim(user_agent="geo12", timeout=3)
     location = geolocator.geocode("{}, {}".format(cities, states))
     try:
@@ -423,8 +356,8 @@ def get_locations(locstr):
       countries = address.get('country', '').strip()
     except:
       countries = ""
-  elif (locstr.split(" ")[0] == "Greater") and (locstr.split(",")[0].split(" ")[-1] == "Area"):
-    locstr = locstr.split(" ")[1] + "," + locstr.split(",")[-1]
+  elif (loc_split_by_space[0] == "Greater") and (locstr.split(",")[0].split(" ")[-1] == "Area"):
+    locstr = loc_split_by_space[1] + "," + locstr.split(",")[-1]
     try:
       cities, states, countries = get_all_the_things(locstr)
     except:
@@ -454,30 +387,19 @@ def get_locations(locstr):
   ###########################################################################
   # STATES
   ###########################################################################
+  ents = {"Central", "Capital", "Northern", "Southern", "Eastern", 
+                "Western", "North", "South", "East", "West", "Region",
+                "Province", "Division", "District", "Capital", "Governorate", 
+                "Coast"}
+
   if states == None:
       if len(place_entity.regions) > 0:
           if place_entity.cities:
-              if (place_entity.regions[0] == place_entity.cities[0])\
-                      and (place_entity.regions[0] != "Central")\
-                      and (place_entity.regions[0] != "Capital")\
-                      and (place_entity.regions[0] != "Northern")\
-                      and (place_entity.regions[0] != "Southern")\
-                      and (place_entity.regions[0] != "Eastern")\
-                      and (place_entity.regions[0] != "Western")\
-                      and (place_entity.regions[0] != "North")\
-                      and (place_entity.regions[0] != "South")\
-                      and (place_entity.regions[0] != "East")\
-                      and (place_entity.regions[0] != "West"):
+              if (place_entity.regions[0] == place_entity.cities[0]) and (place_entity.regions[0] not in ents):
                   if place_entity.other:
                       states = place_entity.other[0]
               elif place_entity.other:
-                  if (place_entity.other[0] == "Region")\
-                          or (place_entity.other[0] == "Province")\
-                          or (place_entity.other[0] == "Division")\
-                          or (place_entity.other[0] == "District")\
-                          or (place_entity.other[0] == "Capital")\
-                          or (place_entity.other[0] == "Governorate")\
-                          or (place_entity.other[0] == "Coast"):
+                  if place_entity.other[0] in ents:
                       if (place_entity.regions[0].find(place_entity.other[0]) == -1):
                           states = place_entity.regions[0] + ' ' + place_entity.other[0]
                       else:
@@ -493,25 +415,18 @@ def get_locations(locstr):
                   states = place_entity.cities[0]
               else:states = place_entity.regions[0]
           except:
-              for i in place_entity.other:
-                if ('Region' in i)\
-                          or ('Province' in i)\
-                          or ('Division' in i)\
-                          or ("District" in i)\
-                          or ("Capital" in i)\
-                          or ("Governorate" in i)\
-                          or ("Coast" in i):
-                      try:
-                          states = place_entity.regions[0]
-                      except:
-                          states = i
-                      break
+            try:
+              if [ele for ele in place_entity.other if ele in ents][0]:
+                try:
+                  states = place_entity.regions[0]
+                except:
+                  states = i
+            except:
+              pass
       else:
           try:
-              if ("District" in place_entity.regions[0])\
-                      or ("Province" in place_entity.regions[0])\
-                      or ("Coast" in place_entity.regions[0]):
-                  states = place_entity.regions[0]
+              if [ele for ele in place_entity.other if ele in ents][0]:
+                states = place_entity.regions[0]
           except:
               states = ""
 
@@ -527,53 +442,33 @@ def get_locations(locstr):
       temp = []
       if len(place_entity.cities) > 0:
           cities = place_entity.cities[0]
-          if (cities == "North")\
-                  or (cities == "South")\
-                  or (cities == "East")\
-                  or (cities == "West")\
-                  or (cities == "Central"):
-              cities = ""
+          try:
+            if [ele for ele in place_entity.other if ele in ents][0]:
+                cities = ""
+          except:
+            pass
           if (cities == countries):
               for i in place_entity.other:
-                  if ('Region' not in i)\
-                          or ('Province' not in i)\
-                          or ('Division' not in i)\
-                          or ('Capital' not in i)\
-                          or ("District" not in i)\
-                          or ("Governorate" not in i)\
-                          or ("Coast" not in i):
-                      temp.append(i)
-                      # cities = i
-              # cities = ""
-          # print(temp)
-          # temp2 = []
-          for j in temp:
-              if (j.find("Province") != -1)\
-                      or (j.find("Region") != -1)\
-                      or (j.find("Division") != -1)\
-                      or (j.find("Capital") != -1)\
-                      or (j.find("District") != -1)\
-                      or (j.find("Coast") != -1):
-                  # temp2.append(j)
-                  continue
-              else:cities = j
-          # print(temp2)
+                try:
+                  if [ele for ele in place_entity.other if ele in ents][0]:
+                    temp.append(i)
+                except:
+                  pass
+          try:
+            if [ele for ele in temp if ele in ents][0]:
+              pass
+            else:
+              cities = j
+          except:
+            pass
       else:
           try:
-              for i in place_entity.other:
-                  if (i.find(countries) != -1)\
-                          or (i.find("Province") != -1)\
-                          or (i.find("Region") != -1)\
-                          or (i.find("Division") != -1)\
-                          or (i.find("Capital") != -1)\
-                          or (i.find("District") != -1)\
-                          or (i.find("Coast") != -1):
-                      continue
-                  else:
-                      cities = i
+            if [ele for ele in place_entity.other if ele in ents][0]:
+              pass
+            else:
+              cities = i
           except:
               cities = ""
-
       ##########################################################################
       #### SPECIAL CASE FOR JAPAN LOCATION 
       #########################################################################
@@ -604,12 +499,6 @@ def get_locations(locstr):
       except:
           country_id, countries = "", ""
 
-      # try:
-      #     if (len(states) == 2) or (len(states) == 3):
-      #         states, countries = get_country_and_state_using_city_only(locstr)
-      # except:
-      #     states, countries = "", ""
-
   ############################################################################
   # COUNTRY CODE
   ############################################################################
@@ -637,8 +526,6 @@ def get_locations(locstr):
   if continent_code:
       continent_name = pc.convert_continent_code_to_continent_name(continent_code.strip())
   else: continent_name = ""
-
-
   #########################################################################
   #### IF CURRENT RESULT HAS COUNTRY BUT COUNTRY/REGION CODE, AND
   #### REGION NAME IS EMPTY
